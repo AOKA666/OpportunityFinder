@@ -197,6 +197,7 @@ export interface Database {
           long_tail_keywords: string[] | null;
           competitor_urls: string[] | null;
           mvp_summary: string | null;
+          founder_fit_summary: string | null;
           standalone_score: number | null;
           founder_fit_score: number | null;
           buildability_score: number | null;
@@ -213,6 +214,7 @@ export interface Database {
           long_tail_keywords?: string[] | null;
           competitor_urls?: string[] | null;
           mvp_summary?: string | null;
+          founder_fit_summary?: string | null;
           standalone_score?: number | null;
           founder_fit_score?: number | null;
           buildability_score?: number | null;

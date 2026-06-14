@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
+import { getOpenAIClient } from "@/lib/ai/client";
 import type { ProductScale } from "@/lib/types/database";
 
 export const productPatternSchema = z.object({
@@ -53,20 +53,6 @@ Never reward popularity by itself. Large platforms such as ChatGPT, Canva, Adobe
 PDF page checkers, SVG viewBox helpers, HTTP header parsers, favicon snippet generators, and similar toolbox buttons must not receive high standalone_potential.
 
 Keep text fields concise and concrete. Use lowercase, reusable tags.`;
-
-let openaiClient: OpenAI | undefined;
-
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Missing OPENAI_API_KEY. Configure it before extracting product patterns.",
-    );
-  }
-
-  openaiClient ??= new OpenAI({ apiKey });
-  return openaiClient;
-}
 
 export function buildProductPatternPrompt(input: ProductPatternInput): string {
   return `Analyze this product:

@@ -101,6 +101,14 @@ export default async function OpportunitiesPage() {
             </div>
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Why it fits a solo founder
+              </h3>
+              <p className="mt-2 text-sm leading-6">
+                {opportunity.founder_fit_summary ?? "—"}
+              </p>
+            </div>
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Inspired by
               </h3>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -122,6 +130,24 @@ export default async function OpportunitiesPage() {
               <p className="mt-2 text-sm text-slate-600">
                 {opportunity.long_tail_keywords?.join(" · ") || "—"}
               </p>
+            </div>
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Competitors
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {opportunity.competitor_urls?.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="max-w-full truncate rounded-full border border-slate-200 px-3 py-1 text-xs hover:border-emerald-700"
+                  >
+                    {url}
+                  </a>
+                ))}
+              </div>
             </div>
             <div className="mt-auto pt-5">
               <p className="border-l-2 border-rose-300 pl-3 text-sm text-slate-600">
