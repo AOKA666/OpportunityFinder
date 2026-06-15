@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { createStructuredCompletion } from "@/lib/ai/structured-output";
+import type { Locale } from "@/lib/i18n-shared";
 import type { ProductPattern, ReviewLabel } from "@/lib/types/product";
 import type { Product, ProductRanking } from "@/lib/types/product";
 
@@ -108,7 +109,11 @@ export function clusterOpportunitySources(
     .sort((left, right) => right.sources.length - left.sources.length);
 }
 
-function buildPrompt(clusters: OpportunityCluster[], limit: number): string {
+export function buildOpportunityPrompt(
+  clusters: OpportunityCluster[],
+  limit: number,
+  locale: Locale,
+): string {
   const evidence = clusters.map((cluster) => ({
     cluster: cluster.label,
     products: cluster.sources.map(({ product, pattern, ranking, review }) => ({
@@ -141,12 +146,18 @@ Rules:
 - Competitor URLs must come from the supplied products when relevant. Do not invent URLs.
 - Never generate PDF small utilities, career/interview/job, exam/study/homeschool, ecommerce, affiliate, overseas creator/media, legal/tax/medical, generic chatbot, generic AI writer, toolbox button utilities, or enterprise SaaS requiring complex sales.
 - Avoid ideas that provide one tiny answer with no durable result page.
-- Use conservative scores. Set verdict to pass when the evidence does not support a credible standalone opportunity.`;
+- Use conservative scores. Set verdict to pass when the evidence does not support a credible standalone opportunity.
+- ${
+    locale === "zh"
+      ? "Write title, description, main_keyword, long_tail_keywords, mvp_summary, founder_fit_summary, and risk_summary entirely in natural Simplified Chinese. Product names and URLs may remain unchanged."
+      : "Write all generated text fields in English."
+  }`;
 }
 
 export async function generateOpportunitiesFromClusters(
   clusters: OpportunityCluster[],
   limit: number,
+  locale: Locale = "en",
 ): Promise<GeneratedOpportunity[]> {
   if (clusters.length === 0) {
     return [];
@@ -160,7 +171,7 @@ export async function generateOpportunitiesFromClusters(
     schemaName: "Opportunity generation",
     systemPrompt:
       "You are a conservative product researcher. Generate only traceable opportunities supported by the supplied product clusters.",
-    userPrompt: buildPrompt(clusters, limit),
+    userPrompt: buildOpportunityPrompt(clusters, limit, locale),
   });
 
   const allowedIds = new Set(

@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 
+import type { Locale } from "@/lib/i18n-shared";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type {
   OpportunityCard,
@@ -7,13 +8,24 @@ import type {
   ProductListItem,
 } from "@/lib/types/product";
 
-async function loadProductListUncached(): Promise<ProductListItem[]> {
+async function loadProductListUncached(
+  recentDays: number | null = 90,
+): Promise<ProductListItem[]> {
   const supabase = createSupabaseServiceClient();
-  const { data: products, error: productsError } = await supabase
+  let productsQuery = supabase
     .from("products")
     .select("*")
-    .order("last_seen_at", { ascending: false })
-    .limit(1000);
+    .order("last_seen_at", { ascending: false });
+
+  if (recentDays !== null) {
+    const cutoff = new Date(
+      Date.now() - recentDays * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    productsQuery = productsQuery.gte("last_seen_at", cutoff);
+  }
+
+  const { data: products, error: productsError } =
+    await productsQuery.limit(1000);
 
   if (productsError) {
     throw new Error(`Unable to load products: ${productsError.message}`);
@@ -77,7 +89,7 @@ async function loadProductListUncached(): Promise<ProductListItem[]> {
 
 export const loadProductList = unstable_cache(
   loadProductListUncached,
-  ["admin-product-list"],
+  ["admin-product-list-v2"],
   {
     revalidate: 60,
     tags: ["admin-product-list"],
@@ -136,11 +148,14 @@ export async function loadProductDetail(
   };
 }
 
-export async function loadOpportunityCards(): Promise<OpportunityCard[]> {
+export async function loadOpportunityCards(
+  locale: Locale = "en",
+): Promise<OpportunityCard[]> {
   const supabase = createSupabaseServiceClient();
   const { data: opportunities, error } = await supabase
     .from("opportunities")
     .select("*")
+    .eq("content_locale", locale)
     .order("created_at", { ascending: false });
 
   if (error) {

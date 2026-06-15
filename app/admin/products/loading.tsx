@@ -1,10 +1,14 @@
+import { getLocale, pick } from "@/lib/i18n";
+
 const ROWS = Array.from({ length: 8 });
 
-export default function ProductsLoading() {
+export default async function ProductsLoading() {
+  const locale = await getLocale();
+
   return (
     <main
       className="mx-auto max-w-[1500px] animate-pulse px-5 py-8 lg:px-8"
-      aria-label="Loading products"
+      aria-label={pick(locale, "Loading products", "正在加载产品")}
     >
       <div className="border-b border-slate-900/15 pb-7">
         <div className="h-3 w-40 rounded bg-emerald-800/15" />

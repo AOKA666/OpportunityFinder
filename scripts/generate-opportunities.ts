@@ -7,15 +7,24 @@ import {
 } from "../lib/ai/generate-opportunities";
 import { writeErrorLog } from "../lib/scrapers/error-log";
 import { createSupabaseServiceClient } from "../lib/supabase/server";
+import type { Locale } from "../lib/i18n-shared";
 import type { Insert } from "../lib/types/database";
 
 function parseArgs(argv: string[]) {
   let limit = 10;
   let dryRun = false;
+  let locale: Locale = "en";
 
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--dry-run") {
       dryRun = true;
+    } else if (argv[index] === "--locale") {
+      const value = argv[index + 1];
+      if (value !== "en" && value !== "zh") {
+        throw new Error("--locale must be en or zh");
+      }
+      locale = value;
+      index += 1;
     } else if (argv[index] === "--limit") {
       const value = Number(argv[index + 1]);
       if (!Number.isInteger(value) || value <= 0 || value > 20) {
@@ -26,7 +35,7 @@ function parseArgs(argv: string[]) {
     }
   }
 
-  return { limit, dryRun };
+  return { limit, dryRun, locale };
 }
 
 async function loadEligibleSources(): Promise<OpportunitySource[]> {
@@ -115,16 +124,21 @@ async function loadEligibleSources(): Promise<OpportunitySource[]> {
 }
 
 async function main() {
-  const { limit, dryRun } = parseArgs(process.argv.slice(2));
+  const { limit, dryRun, locale } = parseArgs(process.argv.slice(2));
   const sources = await loadEligibleSources();
   const clusters = clusterOpportunitySources(sources);
-  const opportunities = await generateOpportunitiesFromClusters(clusters, limit);
+  const opportunities = await generateOpportunitiesFromClusters(
+    clusters,
+    limit,
+    locale,
+  );
   let inserted = 0;
 
   if (!dryRun && opportunities.length > 0) {
-    const rows: Insert<"opportunities">[] = opportunities.map(
-      (opportunity) => opportunity,
-    );
+    const rows: Insert<"opportunities">[] = opportunities.map((opportunity) => ({
+      ...opportunity,
+      content_locale: locale,
+    }));
     const { error } = await createSupabaseServiceClient()
       .from("opportunities")
       .insert(rows);
@@ -141,6 +155,7 @@ async function main() {
         clusters: clusters.length,
         generated: opportunities.length,
         inserted,
+        locale,
         dry_run: dryRun,
       },
       null,

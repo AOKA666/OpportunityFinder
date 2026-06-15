@@ -1,23 +1,103 @@
 import Link from "next/link";
 
 import { saveReviewLabel } from "@/app/admin/actions";
+import { getLocale, localizeValue, pick } from "@/lib/i18n";
 import { loadProductList } from "@/lib/supabase/admin-data";
+import type {
+  FounderFit,
+  Potential,
+  ReviewStatus,
+} from "@/lib/types/database";
 import type { ProductListItem } from "@/lib/types/product";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 const FILTERS = [
-  ["source", "Source"],
-  ["category", "Category"],
-  ["product_scale", "Scale"],
-  ["solo_founder_fit", "Founder fit"],
-  ["seo_potential", "SEO"],
-  ["standalone_potential", "Standalone"],
-  ["review_status", "Review"],
+  "source",
+  "category",
+  "product_scale",
+  "solo_founder_fit",
+  "seo_potential",
+  "standalone_potential",
+  "review_status",
 ] as const;
+
+type BadgeTone = "emerald" | "rose" | "slate" | "amber";
+
+const BADGE_CLASSES: Record<BadgeTone, string> = {
+  amber: "border-amber-200 bg-amber-50 text-amber-800",
+  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  rose: "border-rose-200 bg-rose-50 text-rose-800",
+  slate: "border-slate-200 bg-slate-50 text-slate-600",
+};
+
+function SignalBadge({
+  children,
+  tone = "slate",
+}: {
+  children: React.ReactNode;
+  tone?: BadgeTone;
+}) {
+  return (
+    <span
+      className={`inline-flex h-7 w-[92px] items-center justify-center gap-1.5 truncate rounded-md border px-2 text-[11px] font-semibold ${BADGE_CLASSES[tone]}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      {children}
+    </span>
+  );
+}
+
+function founderTone(value: FounderFit | null | undefined): BadgeTone {
+  if (value === "good") return "emerald";
+  if (value === "maybe") return "amber";
+  if (value === "bad") return "rose";
+  return "slate";
+}
+
+function potentialTone(value: Potential | null | undefined): BadgeTone {
+  if (value === "high") return "emerald";
+  if (value === "medium") return "amber";
+  if (value === "low") return "rose";
+  return "slate";
+}
+
+function reviewTone(value: ReviewStatus | "unreviewed"): BadgeTone {
+  if (value === "keep") return "emerald";
+  if (value === "watch") return "amber";
+  if (value === "pass") return "rose";
+  return "slate";
+}
+
+function rowAccent(product: ProductListItem): string {
+  const review = product.latest_review?.status;
+  const fit = product.latest_pattern?.solo_founder_fit;
+
+  if (review === "keep" || (!review && fit === "good")) {
+    return "border-l-emerald-500";
+  }
+  if (review === "pass" || (!review && fit === "bad")) {
+    return "border-l-rose-400";
+  }
+  if (review === "watch" || fit === "maybe") {
+    return "border-l-amber-400";
+  }
+  return "border-l-slate-300";
+}
+
+function ProductMark({ name }: { name: string }) {
+  return (
+    <span
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600"
+      aria-hidden="true"
+    >
+      {name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
 
 function valueOf(
   params: Record<string, string | string[] | undefined>,
@@ -46,10 +126,6 @@ function filterValue(product: ProductListItem, key: string): string {
     default:
       return "";
   }
-}
-
-function label(value: string | null | undefined) {
-  return value?.replaceAll("_", " ") ?? "—";
 }
 
 function pageHref(
@@ -81,30 +157,47 @@ export default async function ProductsPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const locale = await getLocale();
+  const showAllHistory = valueOf(params, "window") === "all";
   let products: ProductListItem[];
 
   try {
-    products = await loadProductList();
+    products = await loadProductList(showAllHistory ? null : 90);
   } catch (error) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-16">
         <div className="rounded-3xl border border-amber-300 bg-amber-50 p-8">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-800">
-            Database connection required
+            {pick(locale, "Database connection required", "需要连接数据库")}
           </p>
           <h1 className="mt-3 font-serif text-3xl">
-            Configure Supabase to browse products
+            {pick(
+              locale,
+              "Configure Supabase to browse products",
+              "配置 Supabase 后即可浏览产品",
+            )}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-700">
-            {error instanceof Error ? error.message : "Unable to load products."}
+            {error instanceof Error
+              ? error.message
+              : pick(locale, "Unable to load products.", "无法加载产品。")}
           </p>
         </div>
       </main>
     );
   }
 
+  const filterTitles = {
+    source: pick(locale, "Source", "来源"),
+    category: pick(locale, "Category", "分类"),
+    product_scale: pick(locale, "Scale", "规模"),
+    solo_founder_fit: pick(locale, "Founder fit", "独立开发者适配"),
+    seo_potential: "SEO",
+    standalone_potential: pick(locale, "Standalone", "独立产品潜力"),
+    review_status: pick(locale, "Review", "审核状态"),
+  };
   const options = new Map<string, string[]>();
-  for (const [key] of FILTERS) {
+  for (const key of FILTERS) {
     options.set(
       key,
       [
@@ -116,7 +209,7 @@ export default async function ProductsPage({
   }
 
   const filtered = products.filter((product) =>
-    FILTERS.every(([key]) => {
+    FILTERS.every((key) => {
       const selected = valueOf(params, key);
       return !selected || filterValue(product, key) === selected;
     }),
@@ -135,36 +228,65 @@ export default async function ProductsPage({
       <div className="flex flex-col justify-between gap-5 border-b border-slate-900/15 pb-7 md:flex-row md:items-end">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-emerald-800">
-            Product signal review
+            {pick(locale, "Product signal review", "产品信号评估")}
           </p>
           <h1 className="mt-2 font-serif text-4xl tracking-tight md:text-5xl">
-            Ranked products
+            {pick(locale, "Ranked products", "榜单产品")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            {filtered.length} matches from {products.length} collected products
+            {pick(
+              locale,
+              `${filtered.length} matches from ${products.length} ${showAllHistory ? "historical" : "recent"} products`,
+              `${products.length} 个${showAllHistory ? "历史" : "近期"}产品中有 ${filtered.length} 个符合条件`,
+            )}
           </p>
         </div>
-        <Link
-          href="/admin/opportunities"
-          className="self-start rounded-full bg-[#d9ff62] px-5 py-3 text-sm font-semibold text-[#132a24] transition hover:bg-[#c8ef4d] md:self-auto"
-        >
-          View opportunity cards
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-full border border-slate-200 bg-white p-1 text-xs">
+            <Link
+              href="/admin/products"
+              className={`rounded-full px-3 py-1.5 ${
+                !showAllHistory
+                  ? "bg-[#132a24] font-semibold text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {pick(locale, "Recent 90 days", "近 90 天")}
+            </Link>
+            <Link
+              href="/admin/products?window=all"
+              className={`rounded-full px-3 py-1.5 ${
+                showAllHistory
+                  ? "bg-[#132a24] font-semibold text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {pick(locale, "All history", "全部历史")}
+            </Link>
+          </div>
+          <Link
+            href="/admin/opportunities"
+            className="rounded-full bg-[#d9ff62] px-5 py-2.5 text-sm font-semibold text-[#132a24] transition hover:bg-[#c8ef4d]"
+          >
+            {pick(locale, "View opportunity cards", "查看机会卡片")}
+          </Link>
+        </div>
       </div>
 
       <form className="my-6 grid gap-3 rounded-2xl border border-slate-900/10 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {FILTERS.map(([key, title]) => (
+        {showAllHistory && <input type="hidden" name="window" value="all" />}
+        {FILTERS.map((key) => (
           <label key={key} className="text-xs font-medium text-slate-600">
-            {title}
+            {filterTitles[key]}
             <select
               name={key}
               defaultValue={valueOf(params, key)}
               className="mt-1 block w-full rounded-lg border border-slate-200 bg-stone-50 px-3 py-2 text-sm text-slate-900"
             >
-              <option value="">All</option>
+              <option value="">{pick(locale, "All", "全部")}</option>
               {options.get(key)?.map((value) => (
                 <option key={value} value={value}>
-                  {label(value)}
+                  {localizeValue(locale, value)}
                 </option>
               ))}
             </select>
@@ -172,76 +294,148 @@ export default async function ProductsPage({
         ))}
         <div className="flex items-end gap-2 xl:col-span-7">
           <button className="rounded-lg bg-[#132a24] px-4 py-2 text-sm font-medium text-white">
-            Apply filters
+            {pick(locale, "Apply filters", "应用筛选")}
           </button>
           <Link
-            href="/admin/products"
+            href={showAllHistory ? "/admin/products?window=all" : "/admin/products"}
             className="rounded-lg border border-slate-200 px-4 py-2 text-sm"
           >
-            Reset
+            {pick(locale, "Reset", "重置")}
           </Link>
         </div>
       </form>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-900/10 bg-white shadow-sm">
-        <table className="w-full min-w-[1250px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-stone-50 font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
+        <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[190px]" />
+            <col className="w-[240px]" />
+            <col className="w-[115px]" />
+            <col className="w-[145px]" />
+            <col className="w-[115px]" />
+            <col className="w-[115px]" />
+            <col className="w-[95px]" />
+            <col className="w-[115px]" />
+            <col className="w-[110px]" />
+            <col className="w-[180px]" />
+          </colgroup>
+          <thead className="border-b border-slate-200 bg-slate-50 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
             <tr>
               {[
-                "Product",
-                "Tagline",
-                "Source",
-                "Category",
-                "Scale",
-                "Founder fit",
+                pick(locale, "Product", "产品"),
+                pick(locale, "Tagline", "标语"),
+                pick(locale, "Source", "来源"),
+                pick(locale, "Category", "分类"),
+                pick(locale, "Scale", "规模"),
+                pick(locale, "Founder fit", "独立开发者适配"),
                 "SEO",
-                "Standalone",
-                "Review",
-                "Actions",
+                pick(locale, "Standalone", "独立产品潜力"),
+                pick(locale, "Review", "审核"),
+                pick(locale, "Actions", "操作"),
               ].map((heading) => (
-                <th key={heading} className="px-4 py-3 font-medium">
+                <th key={heading} className="px-3 py-3 font-medium">
                   {heading}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visibleProducts.map((product) => (
-              <tr key={product.id} className="align-top hover:bg-lime-50/40">
-                <td className="px-4 py-4">
-                  <Link
-                    href={`/admin/products/${product.id}`}
-                    className="font-semibold text-slate-950 hover:text-emerald-800"
+          <tbody>
+            {visibleProducts.map((product, index) => {
+              const reviewStatus =
+                product.latest_review?.status ?? "unreviewed";
+
+              return (
+              <tr
+                key={product.id}
+                className={`group border-b border-l-[3px] border-b-slate-200 align-middle transition-colors hover:bg-emerald-50/40 ${rowAccent(product)} ${
+                  index % 2 === 0 ? "bg-white" : "bg-[#fbfcfa]"
+                }`}
+              >
+                <td className="px-3 py-4">
+                  <div className="flex items-center gap-2.5">
+                    <ProductMark name={product.name} />
+                    <div className="min-w-0">
+                      <Link
+                        href={`/admin/products/${product.id}`}
+                        title={product.name}
+                        className="block truncate font-semibold text-slate-950 transition group-hover:text-emerald-800"
+                      >
+                        {product.name}
+                      </Link>
+                      <span className="mt-1 block truncate font-mono text-[10px] text-slate-500">
+                        {product.domain ?? pick(locale, "No domain", "无域名")}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-3 py-4 text-slate-600">
+                  <p
+                    className="line-clamp-2 leading-5"
+                    title={product.tagline ?? ""}
                   >
-                    {product.name}
-                  </Link>
-                  <span className="mt-1 block font-mono text-[11px] text-slate-500">
-                    {product.domain ?? "No domain"}
+                    {product.tagline ?? "-"}
+                  </p>
+                </td>
+                <td className="px-3 py-4">
+                  <SignalBadge>
+                    {localizeValue(locale, product.latest_ranking?.source_name)}
+                  </SignalBadge>
+                </td>
+                <td className="px-3 py-4 text-slate-600">
+                  <span
+                    className="block truncate"
+                    title={product.latest_ranking?.category ?? ""}
+                  >
+                    {localizeValue(locale, product.latest_ranking?.category)}
                   </span>
                 </td>
-                <td className="max-w-[260px] px-4 py-4 text-slate-600">
-                  {product.tagline ?? "—"}
+                <td className="px-3 py-4">
+                  <SignalBadge>
+                    {localizeValue(locale, product.product_scale)}
+                  </SignalBadge>
                 </td>
-                <td className="px-4 py-4">
-                  {label(product.latest_ranking?.source_name)}
+                <td className="px-3 py-4">
+                  <SignalBadge
+                    tone={founderTone(
+                      product.latest_pattern?.solo_founder_fit,
+                    )}
+                  >
+                    {localizeValue(
+                      locale,
+                      product.latest_pattern?.solo_founder_fit,
+                    )}
+                  </SignalBadge>
                 </td>
-                <td className="px-4 py-4">
-                  {label(product.latest_ranking?.category)}
+                <td className="px-3 py-4">
+                  <SignalBadge
+                    tone={potentialTone(
+                      product.latest_pattern?.seo_potential,
+                    )}
+                  >
+                    {localizeValue(
+                      locale,
+                      product.latest_pattern?.seo_potential,
+                    )}
+                  </SignalBadge>
                 </td>
-                <td className="px-4 py-4">{label(product.product_scale)}</td>
-                <td className="px-4 py-4">
-                  {label(product.latest_pattern?.solo_founder_fit)}
+                <td className="px-3 py-4">
+                  <SignalBadge
+                    tone={potentialTone(
+                      product.latest_pattern?.standalone_potential,
+                    )}
+                  >
+                    {localizeValue(
+                      locale,
+                      product.latest_pattern?.standalone_potential,
+                    )}
+                  </SignalBadge>
                 </td>
-                <td className="px-4 py-4">
-                  {label(product.latest_pattern?.seo_potential)}
+                <td className="px-3 py-4">
+                  <SignalBadge tone={reviewTone(reviewStatus)}>
+                    {localizeValue(locale, reviewStatus)}
+                  </SignalBadge>
                 </td>
-                <td className="px-4 py-4">
-                  {label(product.latest_pattern?.standalone_potential)}
-                </td>
-                <td className="px-4 py-4 font-medium">
-                  {label(product.latest_review?.status ?? "unreviewed")}
-                </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-4">
                   <form action={saveReviewLabel} className="flex gap-1">
                     <input type="hidden" name="product_id" value={product.id} />
                     {(["keep", "watch", "pass"] as const).map((status) => (
@@ -249,20 +443,31 @@ export default async function ProductsPage({
                         key={status}
                         name="status"
                         value={status}
-                        className="rounded-md border border-slate-200 px-2 py-1 text-xs capitalize hover:border-emerald-700 hover:text-emerald-800"
+                        className={`h-7 rounded-md border px-2 text-[11px] font-semibold transition ${
+                          status === "keep"
+                            ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+                            : status === "watch"
+                              ? "border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
+                              : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                        }`}
                       >
-                        {status}
+                        {localizeValue(locale, status)}
                       </button>
                     ))}
                   </form>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {filtered.length === 0 && (
           <p className="px-5 py-12 text-center text-sm text-slate-500">
-            No products match these filters.
+            {pick(
+              locale,
+              "No products match these filters.",
+              "没有产品符合当前筛选条件。",
+            )}
           </p>
         )}
       </div>
@@ -270,9 +475,11 @@ export default async function ProductsPage({
       {filtered.length > 0 && (
         <div className="mt-5 flex items-center justify-between gap-4 text-sm text-slate-600">
           <p>
-            Showing {pageStart + 1}–
-            {Math.min(pageStart + PAGE_SIZE, filtered.length)} of{" "}
-            {filtered.length}
+            {pick(
+              locale,
+              `Showing ${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, filtered.length)} of ${filtered.length}`,
+              `显示第 ${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, filtered.length)} 条，共 ${filtered.length} 条`,
+            )}
           </p>
           <div className="flex items-center gap-2">
             {currentPage > 1 && (
@@ -280,18 +487,22 @@ export default async function ProductsPage({
                 href={pageHref(params, currentPage - 1)}
                 className="rounded-lg border border-slate-200 bg-white px-4 py-2 hover:border-emerald-700 hover:text-emerald-800"
               >
-                Previous
+                {pick(locale, "Previous", "上一页")}
               </Link>
             )}
             <span className="px-2">
-              Page {currentPage} of {pageCount}
+              {pick(
+                locale,
+                `Page ${currentPage} of ${pageCount}`,
+                `第 ${currentPage} / ${pageCount} 页`,
+              )}
             </span>
             {currentPage < pageCount && (
               <Link
                 href={pageHref(params, currentPage + 1)}
                 className="rounded-lg border border-slate-200 bg-white px-4 py-2 hover:border-emerald-700 hover:text-emerald-800"
               >
-                Next
+                {pick(locale, "Next", "下一页")}
               </Link>
             )}
           </div>

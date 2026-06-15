@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildOpportunityPrompt,
   clusterOpportunitySources,
   type OpportunitySource,
 } from "../lib/ai/generate-opportunities";
@@ -82,6 +83,7 @@ test("exports complete opportunity cards as markdown", () => {
     buildability_score: 80,
     verdict: "build",
     risk_summary: "Recommendations need credible evidence.",
+    content_locale: "en",
     created_at: "",
     inspired_by: [
       { id: "1", name: "Landing Lens", domain: "landinglens.example" },
@@ -92,4 +94,16 @@ test("exports complete opportunity cards as markdown", () => {
   assert.match(markdown, /Landing Page Evidence Report/);
   assert.match(markdown, /Why It Fits a Solo Founder/);
   assert.match(markdown, /landinglens\.example/);
+});
+
+test("requests Simplified Chinese opportunity content for zh locale", () => {
+  const clusters = clusterOpportunitySources([
+    source("1", "Landing Lens", "website screenshot", "diagnosis report"),
+    source("2", "Page Doctor", "website URL", "repair suggestions"),
+  ]);
+
+  const prompt = buildOpportunityPrompt(clusters, 5, "zh");
+
+  assert.match(prompt, /Simplified Chinese/);
+  assert.match(prompt, /title, description, main_keyword/);
 });

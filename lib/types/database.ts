@@ -203,6 +203,7 @@ export interface Database {
           buildability_score: number | null;
           verdict: OpportunityVerdict | null;
           risk_summary: string | null;
+          content_locale: "en" | "zh";
           created_at: string;
         };
         Insert: {
@@ -220,6 +221,7 @@ export interface Database {
           buildability_score?: number | null;
           verdict?: OpportunityVerdict | null;
           risk_summary?: string | null;
+          content_locale?: "en" | "zh";
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["opportunities"]["Insert"]>;
