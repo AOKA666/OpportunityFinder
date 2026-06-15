@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type {
   OpportunityCard,
@@ -5,7 +7,7 @@ import type {
   ProductListItem,
 } from "@/lib/types/product";
 
-export async function loadProductList(): Promise<ProductListItem[]> {
+async function loadProductListUncached(): Promise<ProductListItem[]> {
   const supabase = createSupabaseServiceClient();
   const { data: products, error: productsError } = await supabase
     .from("products")
@@ -72,6 +74,15 @@ export async function loadProductList(): Promise<ProductListItem[]> {
     latest_review: latestReviews.get(product.id) ?? null,
   }));
 }
+
+export const loadProductList = unstable_cache(
+  loadProductListUncached,
+  ["admin-product-list"],
+  {
+    revalidate: 60,
+    tags: ["admin-product-list"],
+  },
+);
 
 export async function loadProductDetail(
   id: string,

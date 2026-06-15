@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { ReviewStatus } from "@/lib/types/database";
@@ -27,6 +27,7 @@ export async function saveReviewLabel(formData: FormData) {
     throw new Error(`Unable to save review: ${error.message}`);
   }
 
+  updateTag("admin-product-list");
   revalidatePath("/admin/products");
   revalidatePath(`/admin/products/${productId}`);
 }

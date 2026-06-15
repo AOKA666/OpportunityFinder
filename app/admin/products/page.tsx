@@ -7,6 +7,7 @@ import type { ProductListItem } from "@/lib/types/product";
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+const PAGE_SIZE = 100;
 
 const FILTERS = [
   ["source", "Source"],
@@ -49,6 +50,29 @@ function filterValue(product: ProductListItem, key: string): string {
 
 function label(value: string | null | undefined) {
   return value?.replaceAll("_", " ") ?? "—";
+}
+
+function pageHref(
+  params: Record<string, string | string[] | undefined>,
+  page: number,
+) {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (key === "page" || value === undefined) {
+      continue;
+    }
+    for (const item of Array.isArray(value) ? value : [value]) {
+      query.append(key, item);
+    }
+  }
+
+  if (page > 1) {
+    query.set("page", String(page));
+  }
+
+  const search = query.toString();
+  return search ? `/admin/products?${search}` : "/admin/products";
 }
 
 export default async function ProductsPage({
@@ -97,6 +121,14 @@ export default async function ProductsPage({
       return !selected || filterValue(product, key) === selected;
     }),
   );
+  const requestedPage = Number.parseInt(valueOf(params, "page"), 10);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(
+    Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+    pageCount,
+  );
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const visibleProducts = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <main className="mx-auto max-w-[1500px] px-5 py-8 lg:px-8">
@@ -109,7 +141,7 @@ export default async function ProductsPage({
             Ranked products
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            {filtered.length} shown from {products.length} collected products
+            {filtered.length} matches from {products.length} collected products
           </p>
         </div>
         <Link
@@ -174,7 +206,7 @@ export default async function ProductsPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((product) => (
+            {visibleProducts.map((product) => (
               <tr key={product.id} className="align-top hover:bg-lime-50/40">
                 <td className="px-4 py-4">
                   <Link
@@ -234,6 +266,37 @@ export default async function ProductsPage({
           </p>
         )}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="mt-5 flex items-center justify-between gap-4 text-sm text-slate-600">
+          <p>
+            Showing {pageStart + 1}–
+            {Math.min(pageStart + PAGE_SIZE, filtered.length)} of{" "}
+            {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            {currentPage > 1 && (
+              <Link
+                href={pageHref(params, currentPage - 1)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 hover:border-emerald-700 hover:text-emerald-800"
+              >
+                Previous
+              </Link>
+            )}
+            <span className="px-2">
+              Page {currentPage} of {pageCount}
+            </span>
+            {currentPage < pageCount && (
+              <Link
+                href={pageHref(params, currentPage + 1)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 hover:border-emerald-700 hover:text-emerald-800"
+              >
+                Next
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

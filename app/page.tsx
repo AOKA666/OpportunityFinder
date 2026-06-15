@@ -16,6 +16,7 @@ export default function Home() {
         </p>
         <Link
           href="/admin/products"
+          prefetch
           className="mt-9 inline-block rounded-full bg-[#d9ff62] px-6 py-3 font-semibold text-[#132a24] transition hover:bg-[#c8ef4d]"
         >
           Open research desk
