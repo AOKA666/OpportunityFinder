@@ -1,7 +1,6 @@
-import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
-import { getOpenAIClient } from "@/lib/ai/client";
+import { createStructuredCompletion } from "@/lib/ai/structured-output";
 import type { ProductPattern, ReviewLabel } from "@/lib/types/product";
 import type { Product, ProductRanking } from "@/lib/types/product";
 
@@ -156,31 +155,20 @@ export async function generateOpportunitiesFromClusters(
   const responseSchema = z.object({
     opportunities: z.array(opportunitySchema).max(limit),
   });
-  const response = await getOpenAIClient().responses.parse({
-    model: "gpt-5.4-mini",
-    input: [
-      {
-        role: "system",
-        content:
-          "You are a conservative product researcher. Generate only traceable opportunities supported by the supplied product clusters.",
-      },
-      { role: "user", content: buildPrompt(clusters, limit) },
-    ],
-    text: {
-      format: zodTextFormat(responseSchema, "opportunity_batch"),
-    },
+  const response = await createStructuredCompletion({
+    schema: responseSchema,
+    schemaName: "Opportunity generation",
+    systemPrompt:
+      "You are a conservative product researcher. Generate only traceable opportunities supported by the supplied product clusters.",
+    userPrompt: buildPrompt(clusters, limit),
   });
-
-  if (!response.output_parsed) {
-    throw new Error("OpenAI returned no parsed opportunities");
-  }
 
   const allowedIds = new Set(
     clusters.flatMap((cluster) =>
       cluster.sources.map((source) => source.product.id),
     ),
   );
-  for (const opportunity of response.output_parsed.opportunities) {
+  for (const opportunity of response.opportunities) {
     if (
       opportunity.source_product_ids.some((id) => !allowedIds.has(id)) ||
       new Set(opportunity.source_product_ids).size < 2
@@ -204,5 +192,5 @@ export async function generateOpportunitiesFromClusters(
     }
   }
 
-  return response.output_parsed.opportunities;
+  return response.opportunities;
 }

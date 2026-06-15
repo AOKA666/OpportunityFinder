@@ -1,7 +1,6 @@
-import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
-import { getOpenAIClient } from "@/lib/ai/client";
+import { createStructuredCompletion } from "@/lib/ai/structured-output";
 import type { ProductScale } from "@/lib/types/database";
 
 export const productPatternSchema = z.object({
@@ -64,20 +63,10 @@ Return the product pattern fields. Base the answer only on the supplied evidence
 export async function extractProductPattern(
   input: ProductPatternInput,
 ): Promise<ExtractedProductPattern> {
-  const response = await getOpenAIClient().responses.parse({
-    model: "gpt-5.4-mini",
-    input: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildProductPatternPrompt(input) },
-    ],
-    text: {
-      format: zodTextFormat(productPatternSchema, "product_pattern"),
-    },
+  return createStructuredCompletion({
+    schema: productPatternSchema,
+    schemaName: "Product pattern generation",
+    systemPrompt: SYSTEM_PROMPT,
+    userPrompt: buildProductPatternPrompt(input),
   });
-
-  if (!response.output_parsed) {
-    throw new Error("OpenAI returned no parsed product pattern");
-  }
-
-  return response.output_parsed;
 }

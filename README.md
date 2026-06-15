@@ -13,6 +13,9 @@ generating traceable opportunities for solo developers.
    ```
 
 2. Copy `.env.example` to `.env.local` and configure the required services.
+   AI enrichment uses the BigModel OpenAI-compatible endpoint with `glm-5.1`.
+   Set `BIGMODEL_API_KEY`; `AI_BASE_URL` and `AI_MODEL` can usually keep their
+   example values.
 
 3. Apply the SQL files in `supabase/migrations` to a Supabase project.
 

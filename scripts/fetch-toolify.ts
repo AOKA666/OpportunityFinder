@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 
 import { parseCommonArgs } from "../lib/scrapers/args";
 import { writeErrorLog } from "../lib/scrapers/error-log";

@@ -1,15 +1,26 @@
 import OpenAI from "openai";
 
-let openaiClient: OpenAI | undefined;
+const DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
+const DEFAULT_MODEL = "glm-5.1";
 
-export function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
+let aiClient: OpenAI | undefined;
+
+export function getAIModel(): string {
+  return process.env.AI_MODEL || DEFAULT_MODEL;
+}
+
+export function getAIClient(): OpenAI {
+  const apiKey =
+    process.env.BIGMODEL_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "Missing OPENAI_API_KEY. Configure it before running AI scripts.",
+      "Missing BIGMODEL_API_KEY. Configure it before running AI scripts.",
     );
   }
 
-  openaiClient ??= new OpenAI({ apiKey });
-  return openaiClient;
+  aiClient ??= new OpenAI({
+    apiKey,
+    baseURL: process.env.AI_BASE_URL || DEFAULT_BASE_URL,
+  });
+  return aiClient;
 }

@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 
 import { createSupabaseServiceClient } from "../lib/supabase/server";
 import type { Insert } from "../lib/types/database";

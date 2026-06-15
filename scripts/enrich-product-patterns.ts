@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 
 import { extractProductPattern } from "../lib/ai/extract-product-pattern";
 import { createSupabaseServiceClient } from "../lib/supabase/server";
@@ -18,6 +18,13 @@ interface EnrichStats {
   maybe: number;
   bad: number;
   errors: number;
+}
+
+function formatDuration(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 function parseArgs(argv: string[]): EnrichArgs {
@@ -106,8 +113,12 @@ async function loadProducts(
 
 async function main() {
   const { limit, dryRun, force } = parseArgs(process.argv.slice(2));
+  console.log(
+    `Loading up to ${limit} product${limit === 1 ? "" : "s"}${force ? " (force mode)" : ""}...`,
+  );
   const products = await loadProducts(limit, force);
   const supabase = dryRun ? null : createSupabaseServiceClient();
+  const startedAt = Date.now();
   const stats: EnrichStats = {
     analyzed: 0,
     inserted: 0,
@@ -117,7 +128,23 @@ async function main() {
     errors: 0,
   };
 
-  for (const product of products) {
+  if (products.length === 0) {
+    console.log("No products need enrichment.");
+    return;
+  }
+
+  console.log(
+    `Found ${products.length} product${products.length === 1 ? "" : "s"}. Starting GLM analysis${dryRun ? " (dry run)" : ""}.`,
+  );
+
+  for (const [index, product] of products.entries()) {
+    const itemStartedAt = Date.now();
+    const position = index + 1;
+    const percent = Math.round((index / products.length) * 100);
+    console.log(
+      `[${position}/${products.length}] ${percent}% Analyzing ${product.name}...`,
+    );
+
     try {
       const pattern = await extractProductPattern({
         name: product.name,
@@ -143,6 +170,13 @@ async function main() {
         }
         stats.inserted += 1;
       }
+
+      const elapsed = Date.now() - startedAt;
+      const average = elapsed / position;
+      const remaining = average * (products.length - position);
+      console.log(
+        `[${position}/${products.length}] Done in ${formatDuration(Date.now() - itemStartedAt)}: ${pattern.solo_founder_fit} founder fit, ${pattern.standalone_potential} standalone potential. ETA ${formatDuration(remaining)}.`,
+      );
     } catch (error) {
       stats.errors += 1;
       await writeErrorLog(
@@ -150,9 +184,14 @@ async function main() {
         { product_id: product.id, name: product.name },
         error,
       );
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[${position}/${products.length}] Failed after ${formatDuration(Date.now() - itemStartedAt)}: ${message}`,
+      );
     }
   }
 
+  console.log(`Completed in ${formatDuration(Date.now() - startedAt)}.`);
   console.log(JSON.stringify(stats, null, 2));
 }
 
