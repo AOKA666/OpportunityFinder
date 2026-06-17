@@ -10,6 +10,7 @@ export interface ImportStats {
   fetched: number;
   inserted_products: number;
   inserted_rankings: number;
+  skipped_ranking_duplicate: number;
   skipped_blocked: number;
   skipped_duplicate: number;
   skipped_not_indie_fit: number;
@@ -101,6 +102,7 @@ export async function importProducts(
     fetched: inputs.length,
     inserted_products: 0,
     inserted_rankings: 0,
+    skipped_ranking_duplicate: 0,
     skipped_blocked: 0,
     skipped_duplicate: 0,
     skipped_not_indie_fit: 0,
@@ -134,6 +136,21 @@ export async function importProducts(
 
       if (existing) {
         stats.skipped_duplicate += 1;
+        if (!options.dryRun) {
+          const seenAt = new Date().toISOString();
+          const { error } = await supabase!
+            .from("products")
+            .update({
+              last_seen_at: seenAt,
+              updated_at: seenAt,
+            })
+            .eq("id", existing.id);
+          if (error) {
+            throw new Error(
+              `Unable to update existing product: ${error.message}`,
+            );
+          }
+        }
       } else if (options.dryRun) {
         productId = `dry-run-${seenProducts.length + 1}`;
         stats.inserted_products += 1;
@@ -188,6 +205,10 @@ export async function importProducts(
           .from("product_rankings")
           .insert(ranking);
         if (error) {
+          if (error.code === "23505") {
+            stats.skipped_ranking_duplicate += 1;
+            continue;
+          }
           throw new Error(`Unable to insert product ranking: ${error.message}`);
         }
       }

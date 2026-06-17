@@ -1,21 +1,23 @@
 import Link from "next/link";
 
+import { getLocale, localizeValue, pick } from "@/lib/i18n";
 import { loadOpportunityCards } from "@/lib/supabase/admin-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function OpportunitiesPage() {
+  const locale = await getLocale();
   let opportunities;
 
   try {
-    opportunities = await loadOpportunityCards();
+    opportunities = await loadOpportunityCards(locale);
   } catch (error) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-16">
         <p className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-sm">
           {error instanceof Error
             ? error.message
-            : "Unable to load opportunities."}
+            : pick(locale, "Unable to load opportunities.", "无法加载机会。")}
         </p>
       </main>
     );
@@ -25,14 +27,17 @@ export default async function OpportunitiesPage() {
     <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
       <div className="border-b border-slate-900/15 pb-7">
         <p className="font-mono text-xs uppercase tracking-[0.22em] text-emerald-800">
-          Traceable directions
+          {pick(locale, "Traceable directions", "可追溯的机会方向")}
         </p>
         <h1 className="mt-2 font-serif text-4xl tracking-tight md:text-5xl">
-          Opportunity cards
+          {pick(locale, "Opportunity cards", "机会卡片")}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-          Adjacent niche directions generated from reviewed product patterns,
-          not free-form idea prompts.
+          {pick(
+            locale,
+            "Adjacent niche directions generated from reviewed product patterns, not free-form idea prompts.",
+            "基于已审核产品模式生成的相邻细分方向，而不是脱离证据的自由创意。",
+          )}
         </p>
       </div>
 
@@ -45,7 +50,10 @@ export default async function OpportunitiesPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
-                  {opportunity.verdict ?? "unrated"}
+                  {localizeValue(
+                    locale,
+                    opportunity.verdict ?? "unrated",
+                  )}
                 </span>
                 <h2 className="mt-2 font-serif text-3xl">
                   {opportunity.title}
@@ -53,10 +61,10 @@ export default async function OpportunitiesPage() {
               </div>
               <div className="rounded-2xl bg-[#d9ff62] px-4 py-3 text-center text-[#132a24]">
                 <span className="block font-mono text-[9px] uppercase">
-                  Standalone
+                  {pick(locale, "Standalone", "独立产品")}
                 </span>
                 <strong className="text-xl">
-                  {opportunity.standalone_score ?? "—"}
+                  {opportunity.standalone_score ?? "-"}
                 </strong>
               </div>
             </div>
@@ -67,49 +75,53 @@ export default async function OpportunitiesPage() {
             <dl className="mt-5 grid gap-4 rounded-2xl bg-stone-50 p-4 sm:grid-cols-3">
               <div>
                 <dt className="text-[10px] uppercase tracking-wider text-slate-500">
-                  Founder fit
+                  {pick(locale, "Founder fit", "开发者适配")}
                 </dt>
                 <dd className="mt-1 text-lg font-semibold">
-                  {opportunity.founder_fit_score ?? "—"}
+                  {opportunity.founder_fit_score ?? "-"}
                 </dd>
               </div>
               <div>
                 <dt className="text-[10px] uppercase tracking-wider text-slate-500">
-                  Buildability
+                  {pick(locale, "Buildability", "可开发性")}
                 </dt>
                 <dd className="mt-1 text-lg font-semibold">
-                  {opportunity.buildability_score ?? "—"}
+                  {opportunity.buildability_score ?? "-"}
                 </dd>
               </div>
               <div>
                 <dt className="text-[10px] uppercase tracking-wider text-slate-500">
-                  Main keyword
+                  {pick(locale, "Main keyword", "主关键词")}
                 </dt>
                 <dd className="mt-1 text-sm font-semibold">
-                  {opportunity.main_keyword ?? "—"}
+                  {opportunity.main_keyword ?? "-"}
                 </dd>
               </div>
             </dl>
 
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                MVP
+                {pick(locale, "MVP", "最小可行产品")}
               </h3>
               <p className="mt-2 text-sm leading-6">
-                {opportunity.mvp_summary ?? "—"}
+                {opportunity.mvp_summary ?? "-"}
               </p>
             </div>
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Why it fits a solo founder
+                {pick(
+                  locale,
+                  "Why it fits a solo founder",
+                  "为什么适合独立开发者",
+                )}
               </h3>
               <p className="mt-2 text-sm leading-6">
-                {opportunity.founder_fit_summary ?? "—"}
+                {opportunity.founder_fit_summary ?? "-"}
               </p>
             </div>
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Inspired by
+                {pick(locale, "Inspired by", "灵感来源")}
               </h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {opportunity.inspired_by.map((product) => (
@@ -125,15 +137,15 @@ export default async function OpportunitiesPage() {
             </div>
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Long-tail keywords
+                {pick(locale, "Long-tail keywords", "长尾关键词")}
               </h3>
               <p className="mt-2 text-sm text-slate-600">
-                {opportunity.long_tail_keywords?.join(" · ") || "—"}
+                {opportunity.long_tail_keywords?.join(" · ") || "-"}
               </p>
             </div>
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Competitors
+                {pick(locale, "Competitors", "竞品")}
               </h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {opportunity.competitor_urls?.map((url) => (
@@ -151,7 +163,12 @@ export default async function OpportunitiesPage() {
             </div>
             <div className="mt-auto pt-5">
               <p className="border-l-2 border-rose-300 pl-3 text-sm text-slate-600">
-                {opportunity.risk_summary ?? "No risk summary generated."}
+                {opportunity.risk_summary ??
+                  pick(
+                    locale,
+                    "No risk summary generated.",
+                    "尚未生成风险摘要。",
+                  )}
               </p>
             </div>
           </article>
@@ -160,9 +177,15 @@ export default async function OpportunitiesPage() {
 
       {opportunities.length === 0 && (
         <div className="mt-8 rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-          <h2 className="font-serif text-2xl">No opportunity cards yet</h2>
+          <h2 className="font-serif text-2xl">
+            {pick(locale, "No opportunity cards yet", "暂无机会卡片")}
+          </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Review products, then run the opportunity generation script.
+            {pick(
+              locale,
+              "Review products, then run the opportunity generation script for English cards.",
+              "当前还没有中文机会卡片，请点击上方“生成机会”创建中文内容。",
+            )}
           </p>
         </div>
       )}
