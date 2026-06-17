@@ -140,7 +140,17 @@ export async function fetchListingSiteProducts(
       break;
     }
 
-    const html = await fetchHtml(category.url);
+    let html: string;
+    try {
+      html = await fetchHtml(category.url);
+    } catch (error) {
+      await onProductError(
+        { source_url: category.url, category: category.name, scope: "category" },
+        error,
+      );
+      continue;
+    }
+
     const $ = cheerio.load(html);
     const detailUrls: string[] = [];
 

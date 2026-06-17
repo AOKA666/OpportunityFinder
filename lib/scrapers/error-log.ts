@@ -6,7 +6,11 @@ export async function writeErrorLog(
   context: Record<string, unknown>,
   error: unknown,
 ): Promise<void> {
-  const logsDirectory = path.resolve(process.cwd(), "logs");
+  const logsRoot =
+    process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+      ? "/tmp/logs"
+      : path.resolve(process.cwd(), "logs");
+  const logsDirectory = path.resolve(logsRoot);
   await mkdir(logsDirectory, { recursive: true });
 
   const entry = {
